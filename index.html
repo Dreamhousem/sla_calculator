@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SLA Calculator</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+    <link rel="icon" href="calendar_ico.png" type="image/png" />
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f0f2f5;
+        color: #333;
+        transition: background 0.3s, color 0.3s;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 30px auto;
+        padding: 20px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      }
+
+      h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #2c3e50;
+      }
+
+      label {
+        font-weight: bold;
+        display: block;
+        margin-top: 15px;
+        color: #2c3e50;
+      }
+
+      .datetime-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .datetime-input {
+        flex: 1;
+        padding: 8px;
+        font-size: 16px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        text-align: center;
+      }
+
+      .calendar-button {
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #e0e0e0;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .calendar-button:focus {
+        outline: none;
+      }
+
+      .adjust-block {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+
+      .adjust-item {
+        text-align: center;
+      }
+
+      .adjust-item button {
+        display: block;
+        width: 35px;
+        margin: 2px auto;
+        border-radius: 5px;
+        background: #3498db;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+
+      .adjust-item input {
+        width: 50px;
+        text-align: center;
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #888;
+      }
+
+      .result {
+        text-align: center;
+        font-weight: bold;
+        font-size: 22px;
+        margin-top: 25px;
+        padding: 10px;
+        border-radius: 6px;
+        background: #3498db;
+        color: white;
+        display: inline-block;
+      }
+
+      .result-container {
+        text-align: center;
+      }
+
+      .theme-toggle {
+        display: block;
+        margin: 20px auto 0;
+        padding: 8px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: none;
+        background: #3498db;
+        color: white;
+      }
+
+      body.dark {
+        background: #2c3e50;
+        color: #ecf0f1;
+      }
+
+      body.dark .container {
+        background: #34495e;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+      }
+
+      body.dark .datetime-input {
+        background: #555;
+        color: #fff;
+        border: 1px solid #aaa;
+      }
+
+      body.dark label,
+      body.dark h2 {
+        color: #ecf0f1;
+      }
+
+      body.dark .calendar-button,
+      body.dark .adjust-item button,
+      body.dark .theme-toggle {
+        background: #2980b9;
+        color: white;
+      }
+
+      body.dark .adjust-item input {
+        background: #555;
+        color: #fff;
+        border: 1px solid #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>SLA Calculator</h2>
+
+      <label>Start Date & Time (full):</label>
+      <div class="datetime-row">
+        <input type="text" id="startFull" class="datetime-input" tabindex="1" />
+        <button class="calendar-button" id="startCalendarBtn" tabindex="-1">
+          📅
+        </button>
+      </div>
+
+      <div class="adjust-block" id="startAdjust"></div>
+
+      <label>End Date & Time (full):</label>
+      <div class="datetime-row">
+        <input type="text" id="endFull" class="datetime-input" tabindex="2" />
+        <button class="calendar-button" id="endCalendarBtn" tabindex="-1">
+          📅
+        </button>
+      </div>
+
+      <div class="adjust-block" id="endAdjust"></div>
+
+      <div class="result-container">
+        <div class="result" id="slaResult">SLA Duration: —</div>
+      </div>
+
+      <button class="theme-toggle" id="themeToggleBtn">Dark</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+      const startInput = document.getElementById("startFull");
+      const endInput = document.getElementById("endFull");
+      const startAdjustDiv = document.getElementById("startAdjust");
+      const endAdjustDiv = document.getElementById("endAdjust");
+      const slaResult = document.getElementById("slaResult");
+      const themeToggleBtn = document.getElementById("themeToggleBtn");
+
+      const fields = [
+        { label: "Day", min: 1, max: 31, getter: "getDate", setter: "setDate" },
+        {
+          label: "Month",
+          min: 1,
+          max: 12,
+          getter: "getMonth",
+          setter: "setMonth",
+        },
+        {
+          label: "Year",
+          min: 1970,
+          max: 2100,
+          getter: "getFullYear",
+          setter: "setFullYear",
+        },
+        {
+          label: "Hour",
+          min: 0,
+          max: 23,
+          getter: "getHours",
+          setter: "setHours",
+        },
+        {
+          label: "Minute",
+          min: 0,
+          max: 59,
+          getter: "getMinutes",
+          setter: "setMinutes",
+        },
+      ];
+
+      const now = new Date();
+
+      const startPicker = flatpickr(startInput, {
+        enableTime: true,
+        dateFormat: "d.m.Y H:i",
+        defaultDate: now,
+        onChange: updateSLA,
+      });
+      const endPicker = flatpickr(endInput, {
+        enableTime: true,
+        dateFormat: "d.m.Y H:i",
+        defaultDate: now,
+        onChange: updateSLA,
+      });
+
+      document
+        .getElementById("startCalendarBtn")
+        .addEventListener("click", () => startPicker.open());
+      startInput.addEventListener("click", () => startPicker.open());
+      document
+        .getElementById("endCalendarBtn")
+        .addEventListener("click", () => endPicker.open());
+      endInput.addEventListener("click", () => endPicker.open());
+
+      function buildAdjustControls(container, picker, prefix) {
+        fields.forEach((f) => {
+          const block = document.createElement("div");
+          block.className = "adjust-item";
+
+          const btnUp = document.createElement("button");
+          btnUp.textContent = "▲";
+          btnUp.tabIndex = -1;
+
+          const input = document.createElement("input");
+          input.type = "number";
+          input.id = prefix + "_" + f.label.toLowerCase();
+          input.min = f.min;
+          input.max = f.max;
+          input.tabIndex = 3;
+          input.addEventListener("input", () =>
+            updateFromFields(picker, prefix)
+          );
+          input.addEventListener("focus", function () {
+            this.select();
+          });
+
+          const btnDown = document.createElement("button");
+          btnDown.textContent = "▼";
+          btnDown.tabIndex = -1;
+
+          btnUp.addEventListener("click", () =>
+            adjustField(picker, f, 1, prefix)
+          );
+          btnDown.addEventListener("click", () =>
+            adjustField(picker, f, -1, prefix)
+          );
+
+          block.appendChild(btnUp);
+          block.appendChild(input);
+          block.appendChild(btnDown);
+          container.appendChild(block);
+        });
+      }
+
+      buildAdjustControls(startAdjustDiv, startPicker, "start");
+      buildAdjustControls(endAdjustDiv, endPicker, "end");
+
+      function adjustField(picker, field, delta, prefix) {
+        let date = picker.selectedDates[0] || new Date();
+        const newDate = new Date(date);
+        if (field.getter === "getMonth") delta = delta;
+        newDate[field.setter](date[field.getter]() + delta);
+        picker.setDate(newDate, true);
+        updateDisplays(picker, prefix);
+        updateSLA();
+      }
+
+      function updateFromFields(picker, prefix) {
+        const d = parseInt(document.getElementById(prefix + "_day").value) || 1;
+        const m =
+          (parseInt(document.getElementById(prefix + "_month").value) || 1) - 1;
+        const y =
+          parseInt(document.getElementById(prefix + "_year").value) || 2025;
+        const h =
+          parseInt(document.getElementById(prefix + "_hour").value) || 0;
+        const min =
+          parseInt(document.getElementById(prefix + "_minute").value) || 0;
+        const newDate = new Date(y, m, d, h, min);
+        picker.setDate(newDate, true);
+        updateSLA();
+      }
+
+      function updateDisplays(picker, prefix) {
+        const date = picker.selectedDates[0] || new Date();
+        document.getElementById(prefix + "_day").value = date
+          .getDate()
+          .toString()
+          .padStart(2, "0");
+        document.getElementById(prefix + "_month").value = (date.getMonth() + 1)
+          .toString()
+          .padStart(2, "0");
+        document.getElementById(prefix + "_year").value = date.getFullYear();
+        document.getElementById(prefix + "_hour").value = date
+          .getHours()
+          .toString()
+          .padStart(2, "0");
+        document.getElementById(prefix + "_minute").value = date
+          .getMinutes()
+          .toString()
+          .padStart(2, "0");
+      }
+
+      function updateSLA() {
+        updateDisplays(startPicker, "start");
+        updateDisplays(endPicker, "end");
+
+        const start = startPicker.selectedDates[0];
+        const end = endPicker.selectedDates[0];
+
+        if (!start || !end) {
+          slaResult.textContent = "SLA Duration: —";
+          return;
+        }
+
+        const diffMs = end - start;
+        if (diffMs < 0) {
+          slaResult.textContent = "End before Start!";
+          return;
+        }
+
+        const mins = Math.floor(diffMs / 60000);
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+
+        slaResult.textContent = `SLA Duration: ${h}h ${m}m`;
+      }
+
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark") {
+        document.body.classList.add("dark");
+        themeToggleBtn.textContent = "Light";
+      }
+
+      themeToggleBtn.addEventListener("click", () => {
+        document.body.classList.toggle("dark");
+        const isDark = document.body.classList.contains("dark");
+        localStorage.setItem("theme", isDark ? "dark" : "light");
+        themeToggleBtn.textContent = isDark ? "Light" : "Dark";
+      });
+
+      updateSLA();
+    </script>
+  </body>
+</html>
