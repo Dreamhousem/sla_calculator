@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SLA Calculator</title>
     <link rel="icon" href="calendar_ico.png" type="image/png" />
     <link id="theme-style" rel="stylesheet" />
@@ -21,6 +22,13 @@
         background: #fff;
         border-radius: 12px;
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      }
+      @media (max-width: 600px) {
+        .container {
+          max-width: 100%;
+          margin: 10px;
+          padding: 10px;
+        }
       }
 
       h2 {
@@ -86,6 +94,20 @@
         color: white;
         border: none;
         cursor: pointer;
+      }
+
+      @media (max-width: 600px) {
+        .adjust-item button {
+          font-size: 20px;
+          padding: 8px 0;
+          width: 40px;
+          height: 35px;
+        }
+
+        .adjust-item input {
+          font-size: 18px;
+          height: 35px;
+        }
       }
 
       .adjust-item input {
@@ -241,6 +263,7 @@
         time_24hr: true,
         onChange: updateSLA,
         locale: "ru",
+        disableMobile: true,
       });
       const endPicker = flatpickr(endInput, {
         enableTime: true,
@@ -249,6 +272,7 @@
         time_24hr: true,
         onChange: updateSLA,
         locale: "ru",
+        disableMobile: true,
       });
 
       document
@@ -362,7 +386,7 @@
 
         const diffMs = end - start;
         if (diffMs < 0) {
-          slaResult.textContent = "End before Start!";
+          slaResult.textContent = "Конечная дата раньше начальной!";
           return;
         }
 
@@ -374,7 +398,7 @@
         if (h >= 24) {
           const days = Math.floor(h / 24);
           const hours = h % 24;
-          resultText += `<br><span style="font-size: 90%">(${days} д. ${hours} ч. ${m} мин.)</span>`;
+          resultText += `<br><span style="font-size: 90%">${days} д. ${hours} ч. ${m} мин.</span>`;
         }
 
         slaResult.innerHTML = resultText;
