@@ -367,7 +367,14 @@
         const h = Math.floor(mins / 60);
         const m = mins % 60;
 
-        slaResult.textContent = `SLA Duration: ${h}h ${m}m`;
+        let resultText = `SLA Duration: ${h}h ${m}m`;
+        if (h >= 24) {
+          const days = Math.floor(h / 24);
+          const hours = h % 24;
+          resultText += `<br><span style="font-size: 90%">(${days} d ${hours} h ${m} min)</span>`;
+        }
+
+        slaResult.innerHTML = resultText;
       }
 
       const savedTheme = localStorage.getItem("theme");
