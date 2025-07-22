@@ -160,9 +160,9 @@
   </head>
   <body>
     <div class="container">
-      <h2>SLA Calculator</h2>
+      <h2>Калькулятор времени</h2>
 
-      <label>Start Date & Time (full):</label>
+      <label>Начальная дата и время:</label>
       <div class="datetime-row">
         <input type="text" id="startFull" class="datetime-input" tabindex="1" />
         <button class="calendar-button" id="startCalendarBtn" tabindex="-1">
@@ -172,7 +172,7 @@
 
       <div class="adjust-block" id="startAdjust"></div>
 
-      <label>End Date & Time (full):</label>
+      <label>Конечная дата и время:</label>
       <div class="datetime-row">
         <input type="text" id="endFull" class="datetime-input" tabindex="2" />
         <button class="calendar-button" id="endCalendarBtn" tabindex="-1">
@@ -186,7 +186,7 @@
         <div class="result" id="slaResult">SLA Duration: —</div>
       </div>
 
-      <button class="theme-toggle" id="themeToggleBtn">Dark</button>
+      <button class="theme-toggle" id="themeToggleBtn">Тёмная тема</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -370,11 +370,11 @@
         const h = Math.floor(mins / 60);
         const m = mins % 60;
 
-        let resultText = `SLA Duration: ${h}h ${m}m`;
+        let resultText = `Длительность: ${h}ч. ${m}мин.`;
         if (h >= 24) {
           const days = Math.floor(h / 24);
           const hours = h % 24;
-          resultText += `<br><span style="font-size: 90%">(${days} d ${hours} h ${m} min)</span>`;
+          resultText += `<br><span style="font-size: 90%">(${days} д. ${hours} ч. ${m} мин.)</span>`;
         }
 
         slaResult.innerHTML = resultText;
@@ -388,13 +388,14 @@
 
       const savedTheme = localStorage.getItem("theme") || "light";
       document.body.classList.toggle("dark", savedTheme === "dark");
-      themeToggleBtn.textContent = savedTheme === "dark" ? "Light" : "Dark";
+      themeToggleBtn.textContent =
+        savedTheme === "dark" ? "Светлая тема" : "Тёмная тема";
       setCalendarTheme(savedTheme === "dark" ? "dark" : "light");
 
       themeToggleBtn.addEventListener("click", () => {
         const isDark = document.body.classList.toggle("dark");
         localStorage.setItem("theme", isDark ? "dark" : "light");
-        themeToggleBtn.textContent = isDark ? "Light" : "Dark";
+        themeToggleBtn.textContent = isDark ? "Светлая тема" : "Тёмная тема";
         setCalendarTheme(isDark ? "dark" : "light");
       });
 
