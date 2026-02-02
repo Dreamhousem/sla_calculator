@@ -128,6 +128,13 @@ label {
   display: inline-block;
 }
 
+.result .result-en {
+  font-size: 90%;
+  opacity: 0.9;
+  display: inline-block;
+  margin-top: 6px;
+}
+
 .result-container {
   text-align: center;
 }

@@ -47,6 +47,8 @@ const startPicker = flatpickr(startInput, {
   onChange: updateSLA,
   locale: "ru",
   disableMobile: true,
+  clickOpens: false, //отключил открытие формы по нажатию на поле Input
+  allowInput: true, //редактируемое поле Input
 });
 const endPicker = flatpickr(endInput, {
   enableTime: true,
@@ -56,16 +58,18 @@ const endPicker = flatpickr(endInput, {
   onChange: updateSLA,
   locale: "ru",
   disableMobile: true,
+  clickOpens: false, //отключил открытие формы по нажатию на поле Input
+  allowInput: true, //редактируемое поле Input
 });
 
 document
   .getElementById("startCalendarBtn")
   .addEventListener("click", () => startPicker.open());
-startInput.addEventListener("click", () => startPicker.open());
+//startInput.addEventListener("click", () => startPicker.open());
 document
   .getElementById("endCalendarBtn")
   .addEventListener("click", () => endPicker.open());
-endInput.addEventListener("click", () => endPicker.open());
+//endInput.addEventListener("click", () => endPicker.open());
 
 function buildAdjustControls(container, picker, prefix) {
   fields.forEach((f) => {
@@ -154,7 +158,7 @@ function updateSLA() {
   const end = endPicker.selectedDates[0];
 
   if (!start || !end) {
-    slaResult.textContent = "SLA Duration: —";
+    slaResult.textContent = "Длительность: —";
     return;
   }
 
@@ -164,18 +168,36 @@ function updateSLA() {
     return;
   }
 
-  const mins = Math.floor(diffMs / 60000);
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const totalMinutes = Math.floor(diffMs / 60000);
 
-  let resultText = `Длительность: ${h}ч. ${m}мин.`;
-  if (h >= 24) {
-    const days = Math.floor(h / 24);
-    const hours = h % 24;
-    resultText += `<br><span style="font-size: 90%">${days} д. ${hours} ч. ${m} мин.</span>`;
+  // Русские значения
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  // Английские значения (d/h/min)
+  const daysEn = Math.floor(totalMinutes / (60 * 24));
+  const hoursEn = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutesEn = totalMinutes % 60;
+
+  let ruText = `${totalHours} ч ${minutes} мин`;
+
+  if (totalHours >= 24) {
+    const daysRu = Math.floor(totalHours / 24);
+    const hoursRu = totalHours % 24;
+    ruText += `<br><span style="font-size: 90%">${daysRu} д ${hoursRu} ч ${minutes} мин</span>`;
   }
 
-  slaResult.innerHTML = resultText;
+  let enText = "";
+  if (daysEn > 0) {
+    enText = `${daysEn} d ${hoursEn} h ${minutesEn} min`;
+  } else {
+    enText = `${hoursEn} h ${minutesEn} min`;
+  }
+
+  // Итог: русский блок + ниже английский блок
+  slaResult.innerHTML =
+    `${ruText}` +
+    `<br><span style="font-size: 90%; opacity: 0.9">${enText}</span>`;
 }
 
 const themeLink = document.getElementById("theme-style");
