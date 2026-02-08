@@ -67,11 +67,8 @@ const startPicker = flatpickr(startInput, {
   defaultDate: now,
   locale: "ru",
   disableMobile: true,
-
-  // allow manual input; don't open on input click
   allowInput: true,
   clickOpens: false,
-
   onChange: updateAll,
 });
 
@@ -81,10 +78,8 @@ const endPicker = flatpickr(endInput, {
   defaultDate: now,
   locale: "ru",
   disableMobile: true,
-
   allowInput: true,
   clickOpens: false,
-
   onChange: updateAll,
 });
 
@@ -117,6 +112,13 @@ const fields = [
     max: 59,
     getter: "getMinutes",
     setter: "setMinutes",
+  },
+  {
+    label: "Second",
+    min: 0,
+    max: 59,
+    getter: "getSeconds",
+    setter: "setSeconds",
   },
 ];
 
@@ -164,7 +166,6 @@ function adjustField(picker, field, delta, prefix) {
   newDate[field.setter](date[field.getter]() + delta);
   picker.setDate(newDate, true);
   updateDisplays(picker, prefix);
-  updateAll();
 }
 
 function updateFromFields(picker, prefix) {
@@ -174,10 +175,10 @@ function updateFromFields(picker, prefix) {
   const y = parseInt(document.getElementById(prefix + "_year").value) || 2025;
   const h = parseInt(document.getElementById(prefix + "_hour").value) || 0;
   const min = parseInt(document.getElementById(prefix + "_minute").value) || 0;
+  const sec = parseInt(document.getElementById(prefix + "_second")?.value) || 0;
 
-  const newDate = new Date(y, m, d, h, min);
+  const newDate = new Date(y, m, d, h, min, sec);
   picker.setDate(newDate, true);
-  updateAll();
 }
 
 function updateDisplays(picker, prefix) {
@@ -195,22 +196,19 @@ function updateDisplays(picker, prefix) {
   document.getElementById(prefix + "_minute").value = String(
     date.getMinutes(),
   ).padStart(2, "0");
+  const secEl = document.getElementById(prefix + "_second");
+  if (secEl) {
+    secEl.value = String(date.getSeconds()).padStart(2, "0");
+  }
 }
 
 // ------------------------------
 // Date parsing for paste/input
-// Supports:
-// dd.mm.yyyy hh:mm(:ss)
-// yyyy.mm.dd hh:mm(:ss)
-// yyyy-mm-dd hh:mm(:ss)
-// dd-mm-yyyy hh:mm(:ss)
-// yyyy-mm-ddThh:mm(:ss)
 // ------------------------------
 function parseDateString(raw) {
   if (!raw) return null;
   let s = String(raw).trim();
 
-  // normalize
   s = s.replace("T", " ");
   s = s.replace(/\s+/g, " ");
 
@@ -259,7 +257,8 @@ function parseDateString(raw) {
     dt.getMonth() !== month - 1 ||
     dt.getDate() !== day ||
     dt.getHours() !== hh ||
-    dt.getMinutes() !== mm
+    dt.getMinutes() !== mm ||
+    dt.getSeconds() !== ss
   ) {
     return null;
   }
@@ -277,7 +276,6 @@ function clearError() {
   errorMsg.textContent = "";
 }
 
-// Paste handler (Ctrl+V)
 function attachSmartInputHandlers(inputEl, picker) {
   inputEl.addEventListener("paste", (e) => {
     const pasted = (e.clipboardData || window.clipboardData).getData("text");
@@ -290,7 +288,6 @@ function attachSmartInputHandlers(inputEl, picker) {
     e.preventDefault();
     clearError();
     picker.setDate(dt, true);
-    updateAll();
   });
 
   inputEl.addEventListener("keydown", (e) => {
@@ -302,7 +299,7 @@ function attachSmartInputHandlers(inputEl, picker) {
       }
       clearError();
       picker.setDate(dt, true);
-      updateAll();
+
       inputEl.blur();
     }
   });
@@ -317,7 +314,6 @@ function attachSmartInputHandlers(inputEl, picker) {
     }
     clearError();
     picker.setDate(dt, true);
-    updateAll();
   });
 }
 
@@ -325,63 +321,136 @@ attachSmartInputHandlers(startInput, startPicker);
 attachSmartInputHandlers(endInput, endPicker);
 
 // ------------------------------
-// Duration formatting RU/EN (SMART)
+// Duration formatting RU/EN (SMART + optional seconds)
 // ------------------------------
-function formatDurationParts(totalMinutes) {
-  const totalHours = Math.floor(totalMinutes / 60);
+function formatDurationParts(diffMs, withSeconds) {
+  if (withSeconds) {
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const seconds = totalSeconds % 60;
+
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+
+    const totalHours = Math.floor(totalMinutes / 60);
+    const hours = totalHours % 24;
+
+    const days = Math.floor(totalHours / 24);
+
+    return {
+      days,
+      hours,
+      minutes,
+      seconds,
+      totalHours,
+      totalMinutes,
+      totalSeconds,
+    };
+  }
+
+  const totalMinutes = Math.floor(diffMs / 60000);
   const minutes = totalMinutes % 60;
 
-  const days = Math.floor(totalHours / 24);
+  const totalHours = Math.floor(totalMinutes / 60);
   const hours = totalHours % 24;
 
-  return { days, hours, minutes, totalHours, totalMinutes };
+  const days = Math.floor(totalHours / 24);
+
+  return {
+    days,
+    hours,
+    minutes,
+    seconds: 0,
+    totalHours,
+    totalMinutes,
+    totalSeconds: totalMinutes * 60,
+  };
 }
 
-function formatRuSmart({ days, hours, minutes, totalHours, totalMinutes }) {
-  // 0..59 мин
-  if (totalMinutes < 60) {
-    return "Длительность: " + `${minutes} мин`;
-  }
-
-  // 1..23 ч
-  if (totalHours < 24) {
-    if (minutes === 0) return "Длительность: " + `${totalHours} ч`;
-    return "Длительность: " + `${totalHours} ч ${minutes} мин`;
-  }
-
-  // 1+ д
+function buildTimePartsRu({ days, hours, minutes, seconds }, withSeconds) {
   const parts = [];
   if (days > 0) parts.push(`${days} д`);
   if (hours > 0) parts.push(`${hours} ч`);
   if (minutes > 0) parts.push(`${minutes} мин`);
-
-  // на всякий случай (если ровно сутки/двое суток и т.п.)
-  if (parts.length === 0) parts.push("0 мин");
-
-  return "Длительность: " + parts.join(" ");
+  if (withSeconds && seconds > 0) parts.push(`${seconds} сек`);
+  return parts;
 }
 
-function formatEnSmart({ days, hours, minutes, totalHours, totalMinutes }) {
-  if (totalMinutes < 60) {
-    return "Duration: " + `${minutes} min`;
-  }
-
-  if (totalHours < 24) {
-    if (minutes === 0) return "Duration: " + `${totalHours} h`;
-    return "Duration: " + `${totalHours} h ${minutes} min`;
-  }
-
+function buildTimePartsEn({ days, hours, minutes, seconds }, withSeconds) {
   const parts = [];
   if (days > 0) parts.push(`${days} d`);
   if (hours > 0) parts.push(`${hours} h`);
   if (minutes > 0) parts.push(`${minutes} min`);
-
-  if (parts.length === 0) parts.push("0 min");
-
-  return "Duration: " + parts.join(" ");
+  if (withSeconds && seconds > 0) parts.push(`${seconds} sec`);
+  return parts;
 }
 
-// Только значение времени без префикса "Длительность:" / "Duration:"
+function formatRuSmart(parts, withSeconds) {
+  // если вообще нули (редко, но пусть будет)
+  const hasAny =
+    parts.days ||
+    parts.hours ||
+    parts.minutes ||
+    (withSeconds && parts.seconds);
+  if (!hasAny) return "Длительность: 0 мин";
+
+  // спец-кейс: меньше часа
+  if (parts.days === 0 && parts.hours === 0) {
+    const smallParts = [];
+    if (parts.minutes > 0) smallParts.push(`${parts.minutes} мин`);
+    if (withSeconds && parts.seconds > 0)
+      smallParts.push(`${parts.seconds} сек`);
+    // если вдруг 0 мин, но есть секунды
+    if (smallParts.length === 0 && withSeconds)
+      smallParts.push(`${parts.seconds} сек`);
+    return "Длительность: " + smallParts.join(" ");
+  }
+
+  // меньше дня
+  if (parts.days === 0) {
+    const smallParts = [];
+    if (parts.hours > 0) smallParts.push(`${parts.hours} ч`);
+    if (parts.minutes > 0) smallParts.push(`${parts.minutes} мин`);
+    if (withSeconds && parts.seconds > 0)
+      smallParts.push(`${parts.seconds} сек`);
+    return "Длительность: " + smallParts.join(" ");
+  }
+
+  // 1+ дней
+  const p = buildTimePartsRu(parts, withSeconds);
+  return "Длительность: " + p.join(" ");
+}
+
+function formatEnSmart(parts, withSeconds) {
+  const hasAny =
+    parts.days ||
+    parts.hours ||
+    parts.minutes ||
+    (withSeconds && parts.seconds);
+  if (!hasAny) return "Duration: 0 min";
+
+  if (parts.days === 0 && parts.hours === 0) {
+    const smallParts = [];
+    if (parts.minutes > 0) smallParts.push(`${parts.minutes} min`);
+    if (withSeconds && parts.seconds > 0)
+      smallParts.push(`${parts.seconds} sec`);
+    if (smallParts.length === 0 && withSeconds)
+      smallParts.push(`${parts.seconds} sec`);
+    return "Duration: " + smallParts.join(" ");
+  }
+
+  if (parts.days === 0) {
+    const smallParts = [];
+    if (parts.hours > 0) smallParts.push(`${parts.hours} h`);
+    if (parts.minutes > 0) smallParts.push(`${parts.minutes} min`);
+    if (withSeconds && parts.seconds > 0)
+      smallParts.push(`${parts.seconds} sec`);
+    return "Duration: " + smallParts.join(" ");
+  }
+
+  const p = buildTimePartsEn(parts, withSeconds);
+  return "Duration: " + p.join(" ");
+}
+
 function stripDurationPrefix(text) {
   if (!text) return "";
   return String(text)
@@ -437,11 +506,11 @@ function updateDuration() {
     return;
   }
 
-  const totalMinutes = Math.floor(diffMs / 60000);
-  const parts = formatDurationParts(totalMinutes);
+  const withSeconds = showSecondsCheckbox.checked;
+  const parts = formatDurationParts(diffMs, withSeconds);
 
-  resultRu.textContent = formatRuSmart(parts);
-  resultEn.textContent = formatEnSmart(parts);
+  resultRu.textContent = formatRuSmart(parts, withSeconds);
+  resultEn.textContent = formatEnSmart(parts, withSeconds);
 }
 
 // ------------------------------
@@ -472,7 +541,6 @@ document.querySelectorAll(".copy-btn").forEach((btn) => {
     const el = document.getElementById(id);
     if (!el) return;
 
-    // главное изменение: копируем только "время", без префикса
     const textToCopy = stripDurationPrefix(el.textContent);
 
     const ok = await copyText(textToCopy);
