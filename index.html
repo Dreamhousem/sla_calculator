@@ -1,16 +1,43 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SLA Calculator</title>
-    <link rel="icon" href="calendar_ico.png" type="image/png" />
+    <title>Калькулятор времени</title>
+
+    <link rel="icon" href="assets/calendar_ico.png" type="image/png" />
     <link id="theme-style" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
   </head>
+
   <body>
     <div class="container">
       <h2>Калькулятор времени</h2>
+
+      <!-- Настройки формата даты -->
+      <div class="settings">
+        <div class="settings-row">
+          <label class="settings-label">Формат даты:</label>
+
+          <select id="dateOrder" class="settings-select">
+            <option value="DMY">ДД.ММ.ГГГГ</option>
+            <option value="YMD">ГГГГ.ММ.ДД</option>
+          </select>
+
+          <select id="dateSep" class="settings-select">
+            <option value=".">.</option>
+            <option value="-">-</option>
+          </select>
+
+          <label class="settings-checkbox">
+            <input type="checkbox" id="showSeconds" />
+            Секунды
+          </label>
+        </div>
+      </div>
 
       <label>Начальная дата и время:</label>
       <div class="datetime-row">
@@ -19,7 +46,6 @@
           📅
         </button>
       </div>
-
       <div class="adjust-block" id="startAdjust"></div>
 
       <label>Конечная дата и время:</label>
@@ -29,18 +55,26 @@
           📅
         </button>
       </div>
-
       <div class="adjust-block" id="endAdjust"></div>
 
+      <!-- Результаты RU/EN + копирование -->
       <div class="result-container">
-        <div class="result" id="slaResult">SLA Duration: —</div>
+        <div class="result-line">
+          <div class="result" id="resultRu">Длительность: —</div>
+          <button class="copy-btn" data-copy="resultRu">Копировать</button>
+        </div>
+
+        <div class="result-line">
+          <div class="result result-secondary" id="resultEn">Duration: —</div>
+          <button class="copy-btn" data-copy="resultEn">Copy</button>
+        </div>
+
+        <div class="error" id="errorMsg" hidden></div>
       </div>
 
       <button class="theme-toggle" id="themeToggleBtn">Тёмная тема</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

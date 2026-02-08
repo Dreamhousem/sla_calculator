@@ -1,19 +1,108 @@
+// ------------------------------
+// DOM
+// ------------------------------
 const startInput = document.getElementById("startFull");
 const endInput = document.getElementById("endFull");
 const startAdjustDiv = document.getElementById("startAdjust");
 const endAdjustDiv = document.getElementById("endAdjust");
-const slaResult = document.getElementById("slaResult");
-const themeToggleBtn = document.getElementById("themeToggleBtn");
 
+const resultRu = document.getElementById("resultRu");
+const resultEn = document.getElementById("resultEn");
+const errorMsg = document.getElementById("errorMsg");
+
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const themeLink = document.getElementById("theme-style");
+
+const dateOrderSelect = document.getElementById("dateOrder");
+const dateSepSelect = document.getElementById("dateSep");
+const showSecondsCheckbox = document.getElementById("showSeconds");
+
+// ------------------------------
+// Helpers: localStorage settings
+// ------------------------------
+const SETTINGS_KEY = "date_format_settings";
+
+function loadDateFormatSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { order: "DMY", sep: ".", seconds: false };
+    const s = JSON.parse(raw);
+    return {
+      order: s.order === "YMD" ? "YMD" : "DMY",
+      sep: s.sep === "-" ? "-" : ".",
+      seconds: Boolean(s.seconds),
+    };
+  } catch {
+    return { order: "DMY", sep: ".", seconds: false };
+  }
+}
+
+function saveDateFormatSettings(settings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function getCurrentFormatSettings() {
+  return {
+    order: dateOrderSelect.value === "YMD" ? "YMD" : "DMY",
+    sep: dateSepSelect.value === "-" ? "-" : ".",
+    seconds: showSecondsCheckbox.checked,
+  };
+}
+
+// Flatpickr format string from settings
+function buildFlatpickrFormat({ order, sep, seconds }) {
+  const datePart = order === "YMD" ? `Y${sep}m${sep}d` : `d${sep}m${sep}Y`;
+  const timePart = seconds ? "H:i:S" : "H:i";
+  return `${datePart} ${timePart}`;
+}
+
+// ------------------------------
+// Flatpickr init
+// ------------------------------
+const now = new Date();
+
+const startPicker = flatpickr(startInput, {
+  enableTime: true,
+  time_24hr: true,
+  defaultDate: now,
+  locale: "ru",
+  disableMobile: true,
+
+  // allow manual input; don't open on input click
+  allowInput: true,
+  clickOpens: false,
+
+  onChange: updateAll,
+});
+
+const endPicker = flatpickr(endInput, {
+  enableTime: true,
+  time_24hr: true,
+  defaultDate: now,
+  locale: "ru",
+  disableMobile: true,
+
+  allowInput: true,
+  clickOpens: false,
+
+  onChange: updateAll,
+});
+
+// open calendar only via buttons
+document
+  .getElementById("startCalendarBtn")
+  .addEventListener("click", () => startPicker.open());
+
+document
+  .getElementById("endCalendarBtn")
+  .addEventListener("click", () => endPicker.open());
+
+// ------------------------------
+// Adjust controls
+// ------------------------------
 const fields = [
   { label: "Day", min: 1, max: 31, getter: "getDate", setter: "setDate" },
-  {
-    label: "Month",
-    min: 1,
-    max: 12,
-    getter: "getMonth",
-    setter: "setMonth",
-  },
+  { label: "Month", min: 1, max: 12, getter: "getMonth", setter: "setMonth" },
   {
     label: "Year",
     min: 1970,
@@ -21,13 +110,7 @@ const fields = [
     getter: "getFullYear",
     setter: "setFullYear",
   },
-  {
-    label: "Hour",
-    min: 0,
-    max: 23,
-    getter: "getHours",
-    setter: "setHours",
-  },
+  { label: "Hour", min: 0, max: 23, getter: "getHours", setter: "setHours" },
   {
     label: "Minute",
     min: 0,
@@ -36,40 +119,6 @@ const fields = [
     setter: "setMinutes",
   },
 ];
-
-const now = new Date();
-
-const startPicker = flatpickr(startInput, {
-  enableTime: true,
-  dateFormat: "d.m.Y H:i",
-  defaultDate: now,
-  time_24hr: true,
-  onChange: updateSLA,
-  locale: "ru",
-  disableMobile: true,
-  clickOpens: false, //отключил открытие формы по нажатию на поле Input
-  allowInput: true, //редактируемое поле Input
-});
-const endPicker = flatpickr(endInput, {
-  enableTime: true,
-  dateFormat: "d.m.Y H:i",
-  defaultDate: now,
-  time_24hr: true,
-  onChange: updateSLA,
-  locale: "ru",
-  disableMobile: true,
-  clickOpens: false, //отключил открытие формы по нажатию на поле Input
-  allowInput: true, //редактируемое поле Input
-});
-
-document
-  .getElementById("startCalendarBtn")
-  .addEventListener("click", () => startPicker.open());
-//startInput.addEventListener("click", () => startPicker.open());
-document
-  .getElementById("endCalendarBtn")
-  .addEventListener("click", () => endPicker.open());
-//endInput.addEventListener("click", () => endPicker.open());
 
 function buildAdjustControls(container, picker, prefix) {
   fields.forEach((f) => {
@@ -82,10 +131,11 @@ function buildAdjustControls(container, picker, prefix) {
 
     const input = document.createElement("input");
     input.type = "number";
-    input.id = prefix + "_" + f.label.toLowerCase();
+    input.id = `${prefix}_${f.label.toLowerCase()}`;
     input.min = f.min;
     input.max = f.max;
     input.tabIndex = 3;
+
     input.addEventListener("input", () => updateFromFields(picker, prefix));
     input.addEventListener("focus", function () {
       this.select();
@@ -109,13 +159,12 @@ buildAdjustControls(startAdjustDiv, startPicker, "start");
 buildAdjustControls(endAdjustDiv, endPicker, "end");
 
 function adjustField(picker, field, delta, prefix) {
-  let date = picker.selectedDates[0] || new Date();
+  const date = picker.selectedDates[0] || new Date();
   const newDate = new Date(date);
-  if (field.getter === "getMonth") delta = delta;
   newDate[field.setter](date[field.getter]() + delta);
   picker.setDate(newDate, true);
   updateDisplays(picker, prefix);
-  updateSLA();
+  updateAll();
 }
 
 function updateFromFields(picker, prefix) {
@@ -125,83 +174,318 @@ function updateFromFields(picker, prefix) {
   const y = parseInt(document.getElementById(prefix + "_year").value) || 2025;
   const h = parseInt(document.getElementById(prefix + "_hour").value) || 0;
   const min = parseInt(document.getElementById(prefix + "_minute").value) || 0;
+
   const newDate = new Date(y, m, d, h, min);
   picker.setDate(newDate, true);
-  updateSLA();
+  updateAll();
 }
 
 function updateDisplays(picker, prefix) {
   const date = picker.selectedDates[0] || new Date();
-  document.getElementById(prefix + "_day").value = date
-    .getDate()
-    .toString()
-    .padStart(2, "0");
-  document.getElementById(prefix + "_month").value = (date.getMonth() + 1)
-    .toString()
-    .padStart(2, "0");
+  document.getElementById(prefix + "_day").value = String(
+    date.getDate(),
+  ).padStart(2, "0");
+  document.getElementById(prefix + "_month").value = String(
+    date.getMonth() + 1,
+  ).padStart(2, "0");
   document.getElementById(prefix + "_year").value = date.getFullYear();
-  document.getElementById(prefix + "_hour").value = date
-    .getHours()
-    .toString()
-    .padStart(2, "0");
-  document.getElementById(prefix + "_minute").value = date
-    .getMinutes()
-    .toString()
-    .padStart(2, "0");
+  document.getElementById(prefix + "_hour").value = String(
+    date.getHours(),
+  ).padStart(2, "0");
+  document.getElementById(prefix + "_minute").value = String(
+    date.getMinutes(),
+  ).padStart(2, "0");
 }
 
-function updateSLA() {
+// ------------------------------
+// Date parsing for paste/input
+// Supports:
+// dd.mm.yyyy hh:mm(:ss)
+// yyyy.mm.dd hh:mm(:ss)
+// yyyy-mm-dd hh:mm(:ss)
+// dd-mm-yyyy hh:mm(:ss)
+// yyyy-mm-ddThh:mm(:ss)
+// ------------------------------
+function parseDateString(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+
+  // normalize
+  s = s.replace("T", " ");
+  s = s.replace(/\s+/g, " ");
+
+  const match = s.match(
+    /(\d{1,4})[.\-\/](\d{1,2})[.\-\/](\d{1,4})\s+(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?/,
+  );
+  if (!match) return null;
+
+  const a = parseInt(match[1], 10);
+  const b = parseInt(match[2], 10);
+  const c = parseInt(match[3], 10);
+  const hh = parseInt(match[4], 10);
+  const mm = parseInt(match[5], 10);
+  const ss = match[6] ? parseInt(match[6], 10) : 0;
+
+  let year, month, day;
+  if (String(match[1]).length === 4) {
+    year = a;
+    month = b;
+    day = c;
+  } else if (String(match[3]).length === 4) {
+    day = a;
+    month = b;
+    year = c;
+  } else {
+    if (a > 31) {
+      year = a;
+      month = b;
+      day = c;
+    } else {
+      day = a;
+      month = b;
+      year = c;
+    }
+  }
+
+  if (year < 1970 || year > 2100) return null;
+  if (month < 1 || month > 12) return null;
+  if (hh < 0 || hh > 23) return null;
+  if (mm < 0 || mm > 59) return null;
+  if (ss < 0 || ss > 59) return null;
+
+  const dt = new Date(year, month - 1, day, hh, mm, ss);
+  if (
+    dt.getFullYear() !== year ||
+    dt.getMonth() !== month - 1 ||
+    dt.getDate() !== day ||
+    dt.getHours() !== hh ||
+    dt.getMinutes() !== mm
+  ) {
+    return null;
+  }
+
+  return dt;
+}
+
+function showError(text) {
+  errorMsg.hidden = false;
+  errorMsg.textContent = text;
+}
+
+function clearError() {
+  errorMsg.hidden = true;
+  errorMsg.textContent = "";
+}
+
+// Paste handler (Ctrl+V)
+function attachSmartInputHandlers(inputEl, picker) {
+  inputEl.addEventListener("paste", (e) => {
+    const pasted = (e.clipboardData || window.clipboardData).getData("text");
+    const dt = parseDateString(pasted);
+    if (!dt) {
+      showError("Не удалось распознать дату/время. Проверь формат.");
+      return;
+    }
+
+    e.preventDefault();
+    clearError();
+    picker.setDate(dt, true);
+    updateAll();
+  });
+
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const dt = parseDateString(inputEl.value);
+      if (!dt) {
+        showError("Некорректная дата/время. Пример: 25.07.2025 13:03");
+        return;
+      }
+      clearError();
+      picker.setDate(dt, true);
+      updateAll();
+      inputEl.blur();
+    }
+  });
+
+  inputEl.addEventListener("blur", () => {
+    const v = inputEl.value.trim();
+    if (!v) return;
+    const dt = parseDateString(v);
+    if (!dt) {
+      showError("Некорректная дата/время. Пример: 2026-02-03 16:30:00");
+      return;
+    }
+    clearError();
+    picker.setDate(dt, true);
+    updateAll();
+  });
+}
+
+attachSmartInputHandlers(startInput, startPicker);
+attachSmartInputHandlers(endInput, endPicker);
+
+// ------------------------------
+// Duration formatting RU/EN (SMART)
+// ------------------------------
+function formatDurationParts(totalMinutes) {
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+
+  return { days, hours, minutes, totalHours, totalMinutes };
+}
+
+function formatRuSmart({ days, hours, minutes, totalHours, totalMinutes }) {
+  // 0..59 мин
+  if (totalMinutes < 60) {
+    return "Длительность: " + `${minutes} мин`;
+  }
+
+  // 1..23 ч
+  if (totalHours < 24) {
+    if (minutes === 0) return "Длительность: " + `${totalHours} ч`;
+    return "Длительность: " + `${totalHours} ч ${minutes} мин`;
+  }
+
+  // 1+ д
+  const parts = [];
+  if (days > 0) parts.push(`${days} д`);
+  if (hours > 0) parts.push(`${hours} ч`);
+  if (minutes > 0) parts.push(`${minutes} мин`);
+
+  // на всякий случай (если ровно сутки/двое суток и т.п.)
+  if (parts.length === 0) parts.push("0 мин");
+
+  return "Длительность: " + parts.join(" ");
+}
+
+function formatEnSmart({ days, hours, minutes, totalHours, totalMinutes }) {
+  if (totalMinutes < 60) {
+    return "Duration: " + `${minutes} min`;
+  }
+
+  if (totalHours < 24) {
+    if (minutes === 0) return "Duration: " + `${totalHours} h`;
+    return "Duration: " + `${totalHours} h ${minutes} min`;
+  }
+
+  const parts = [];
+  if (days > 0) parts.push(`${days} d`);
+  if (hours > 0) parts.push(`${hours} h`);
+  if (minutes > 0) parts.push(`${minutes} min`);
+
+  if (parts.length === 0) parts.push("0 min");
+
+  return "Duration: " + parts.join(" ");
+}
+
+// Только значение времени без префикса "Длительность:" / "Duration:"
+function stripDurationPrefix(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/^Длительность:\s*/i, "")
+    .replace(/^Duration:\s*/i, "")
+    .trim();
+}
+
+// ------------------------------
+// Apply date format settings to pickers
+// ------------------------------
+function applyDateFormatSettings(settings) {
+  const fmt = buildFlatpickrFormat(settings);
+
+  dateOrderSelect.value = settings.order;
+  dateSepSelect.value = settings.sep;
+  showSecondsCheckbox.checked = settings.seconds;
+
+  startPicker.set("dateFormat", fmt);
+  endPicker.set("dateFormat", fmt);
+
+  if (startPicker.selectedDates[0])
+    startPicker.setDate(startPicker.selectedDates[0], false);
+  if (endPicker.selectedDates[0])
+    endPicker.setDate(endPicker.selectedDates[0], false);
+}
+
+// ------------------------------
+// Update all
+// ------------------------------
+function updateAll() {
   updateDisplays(startPicker, "start");
   updateDisplays(endPicker, "end");
+  updateDuration();
+}
+
+function updateDuration() {
+  clearError();
 
   const start = startPicker.selectedDates[0];
   const end = endPicker.selectedDates[0];
 
   if (!start || !end) {
-    slaResult.textContent = "Длительность: —";
+    resultRu.textContent = "Длительность: —";
+    resultEn.textContent = "Duration: —";
     return;
   }
 
   const diffMs = end - start;
   if (diffMs < 0) {
-    slaResult.textContent = "Конечная дата раньше начальной!";
+    resultRu.textContent = "Конечная дата раньше начальной!";
+    resultEn.textContent = "End is earlier than Start!";
     return;
   }
 
   const totalMinutes = Math.floor(diffMs / 60000);
+  const parts = formatDurationParts(totalMinutes);
 
-  // Русские значения
-  const totalHours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  // Английские значения (d/h/min)
-  const daysEn = Math.floor(totalMinutes / (60 * 24));
-  const hoursEn = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutesEn = totalMinutes % 60;
-
-  let ruText = `${totalHours} ч ${minutes} мин`;
-
-  if (totalHours >= 24) {
-    const daysRu = Math.floor(totalHours / 24);
-    const hoursRu = totalHours % 24;
-    ruText += `<br><span style="font-size: 90%">${daysRu} д ${hoursRu} ч ${minutes} мин</span>`;
-  }
-
-  let enText = "";
-  if (daysEn > 0) {
-    enText = `${daysEn} d ${hoursEn} h ${minutesEn} min`;
-  } else {
-    enText = `${hoursEn} h ${minutesEn} min`;
-  }
-
-  // Итог: русский блок + ниже английский блок
-  slaResult.innerHTML =
-    `${ruText}` +
-    `<br><span style="font-size: 90%; opacity: 0.9">${enText}</span>`;
+  resultRu.textContent = formatRuSmart(parts);
+  resultEn.textContent = formatEnSmart(parts);
 }
 
-const themeLink = document.getElementById("theme-style");
+// ------------------------------
+// Copy buttons (copy only time)
+// ------------------------------
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
 
+document.querySelectorAll(".copy-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const id = btn.getAttribute("data-copy");
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    // главное изменение: копируем только "время", без префикса
+    const textToCopy = stripDurationPrefix(el.textContent);
+
+    const ok = await copyText(textToCopy);
+    const old = btn.textContent;
+
+    btn.textContent = ok ? "Скопировано" : "Ошибка";
+    setTimeout(() => (btn.textContent = old), 900);
+  });
+});
+
+// ------------------------------
+// Theme
+// ------------------------------
 function setCalendarTheme(theme) {
   themeLink.href = `https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/${theme}.css`;
 }
@@ -219,4 +503,22 @@ themeToggleBtn.addEventListener("click", () => {
   setCalendarTheme(isDark ? "dark" : "light");
 });
 
-updateSLA();
+// ------------------------------
+// Date format settings UI events
+// ------------------------------
+const savedFmt = loadDateFormatSettings();
+applyDateFormatSettings(savedFmt);
+
+function onFormatSettingsChange() {
+  const s = getCurrentFormatSettings();
+  saveDateFormatSettings(s);
+  applyDateFormatSettings(s);
+  updateAll();
+}
+
+dateOrderSelect.addEventListener("change", onFormatSettingsChange);
+dateSepSelect.addEventListener("change", onFormatSettingsChange);
+showSecondsCheckbox.addEventListener("change", onFormatSettingsChange);
+
+// initial draw
+updateAll();
